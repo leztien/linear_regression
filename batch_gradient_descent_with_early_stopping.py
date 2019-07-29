@@ -1,7 +1,7 @@
 
 
 """
-make n-dimensional dataset with k lineraly seperable classes (for classification problems)
+batch gradient descent with early stopping / softmax classification 
 """
 
 import numpy as np
