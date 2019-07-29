@@ -1,7 +1,7 @@
 
 
 """
-batch gradient descent with early stopping
+make n-dimensional dataset with k lineraly seperable classes (for classification problems)
 """
 
 import numpy as np
@@ -116,14 +116,9 @@ def make_data_for_classification(m:'total number of data-points',
     vectors = [T@v for T in transformations_for_unit_vector]  # vector[0] will be ignored
 
     #shift the k-1 blobs in the direction of the respective random unit vector
-    vicinity_from_central_blob = 1
-    blobs_density = blobs_density or 0.5  # density of blobs (0, 1)
-    if blobs_density <= 0.09:
-        vicinity_from_central_blob = blobs_density*10
-        blobs_density = 0
-
+    blobs_density = blobs_density if not(blobs_density is None) else 1  # density of blobs (0, 1)
     for i in range(1,k):
-        vector = vectors[i] * (radii[0] * vicinity_from_central_blob + radii[i] * blobs_density)
+        vector = vectors[i] * (radii[0] + radii[i]) * blobs_density
         blobs[i] = blobs[i] + vector.flatten()
 
     #make the target vector, concatinate the data
@@ -139,7 +134,8 @@ def make_data_for_classification(m:'total number of data-points',
 #===========================================================================    
 
 
-X,y = make_data_for_classification(m=200, n=7, k=4, blobs_density=0.3, random_state=1)
+X,y = make_data_for_classification(m=100, n=50, k=4, 
+                blobs_density=0.3, random_state=None)
 
 
 #sklearn model
@@ -224,14 +220,14 @@ class BatchGradientDescentEarlyStopping:
                 if self.verbose:
                     print("\nSUMMARY:")
                     print("breaking out after epoch", epoch)
-                    print("current learning rate =", round(self.η, 3))
                     print("best model parameters are at index", ix)
+                    print("current learning rate =", round(self.η, 3))
                     accuracy = self.accuracy(Xval, yval)
                     print("gradient descent accuracy on validation set =", accuracy)
                     import matplotlib.pyplot as plt
                     plt.plot(self.training_cost, color='red')
                     plt.plot(self.validation_cost, color='blue')
-                    plt.ylim(0, 0.5)
+                    plt.ylim(0, 0.9)
                 break
         else: 
             ix = self.validation_cost.index(min(self.validation_cost))
@@ -289,19 +285,26 @@ class BatchGradientDescentEarlyStopping:
         
         if len(cost_sequence) < n: return current_learning_rate
         
+        #check for oscilation (jumping around of the gradient) >>> decrease learning rate
         a = np.array(cost_sequence)[-n:]
         signs = np.sign(a[1:] - a[:-1])
         counts = [tuple(signs).count(n) for n in (1,-1)]
         f = min(count/(sum(counts)+1e-9) for count in counts)
         b = f >= 0.2   # b == oscilating
         if b: current_learning_rate = current_learning_rate * learning_rate_decreasing_ratio
+        
+        #check for too low learning rate >>> increase learning rate
+        a = np.array(self.validation_cost)[-n:]
+        signs = np.sign(a[1:] - a[:-1])
+        b = -sum(signs) == (n-1)   # b = True >>> going down continuously
+        if b and len(self.validation_cost)>n:
+            current_learning_rate = current_learning_rate * 1.05
         return current_learning_rate
 
 
     def _check_early_stopping(self):
         n = 5 # consider the last n values
         validation_cost_sequence = self.validation_cost
-        
         if len(validation_cost_sequence) <= n: return None
         a = np.array(validation_cost_sequence)[-n:]
         signs = np.sign(a[1:] - a[:-1])
@@ -310,7 +313,7 @@ class BatchGradientDescentEarlyStopping:
             ix = validation_cost_sequence.index(min(validation_cost_sequence))  # index of the best model 
             return ix
         return b
-#======= end of BatchGradientDescentEarlyStopping ============================================
+#======= end of BatchGradientDescentEarlyStopping =============================================
 
 
 md = BatchGradientDescentEarlyStopping(random_state=None, verbose=True)
@@ -319,17 +322,5 @@ md.fit(X,y)
 probs = md.precict_probabilities(X)
 y = md.predict(X)
 acuracy = md.accuracy(X,y)
-print(accuracy)
-
-
-
-
-
-
-
-
-
-
-
-
+print("accuracy on the whole data set =", accuracy)
 
