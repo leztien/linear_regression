@@ -20,7 +20,7 @@ def load_from_github(url):
 
 
 def binary_logistic_classification(X,y) -> "predicting function":
-    from numpy import array, zeros, exp, log as ln
+    from numpy import array, zeros, ones, exp, c_, log as ln
     #hyperparameters:
     λ = 0.001
     η = 0.01
@@ -30,13 +30,15 @@ def binary_logistic_classification(X,y) -> "predicting function":
     m,n = X.shape
     μ,σ = X.mean(0), X.std(0, ddof=0)
     X = (X-μ)/σ  # standerdize
+    x0 = ones(m)
+    X = c_[x0, X]
     y = y.reshape(-1,1)
-    θ = zeros(shape=n).reshape(-1,1)
+    θ = zeros(shape=n+1).reshape(-1,1)
     
     #THE LOOP
     for epoch in range(max_iter):
-        z = X @ θ 
-        h = 1 / (1 + exp(-z))
+        #hypothesis
+        h = 1 / (1 + exp(-X @ θ))
         
         #cost
         J = -(ln(h)*y + ln(1-h)*(1-y)).sum() / m
@@ -46,9 +48,9 @@ def binary_logistic_classification(X,y) -> "predicting function":
             print("breaking after loop", epoch)
             break
         
-        #derivative
+        #derivatives
         θ_ = array([0, *θ[1:]]).reshape(-1,1)  # θ[0] is not regularized
-        g = (1/m) * X.T @ (h-y) + λ/m*θ_
+        g = (1/m) * X.T @ (h-y) + λ/m*θ_       # g = gradient vector
         
         #update
         θ = θ - η*g
@@ -60,7 +62,8 @@ def binary_logistic_classification(X,y) -> "predicting function":
     print("cost =", J.round(3), "accuracy =", accuracy.round(3), end="\n\n")
     
     #return predicting function
-    predict = lambda X : ((1 / (1 + exp(-(X-μ)/σ @ θ))) >= 0.5).astype("uint8").ravel()
+    predict = lambda X : ((1 / (1 + exp(-c_[ones(len(X)),(X-μ)/σ] @ θ))) >= 0.5).astype("uint8").ravel()
+    predict.weights = θ
     return(predict)
 
 #######################################################################################
@@ -68,7 +71,7 @@ def binary_logistic_classification(X,y) -> "predicting function":
 #data
 path = r"https://raw.githubusercontent.com/leztien/synthetic_datasets/master/two_egg_carton_separable_blobs.py"
 module = load_from_github(path)
-X,y = module.two_egg_carton_separable_blobs(m=1000, n=30)
+X,y = module.two_egg_carton_separable_blobs(m=1000, n=5)
 
 #split
 from numpy.random import permutation
